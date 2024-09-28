@@ -1,9 +1,26 @@
-# Define the module as "deck_of_cards.py"
+import socket
+
+#creating a UDP socket to recieve data
+def udp_server():
+    # Server-side setup: bind to port 32001
+    server_ip = "0.0.0.0"  # Listen on all interfaces
+    server_port = 32001
+    buffer_size = 1024  # Buffer size for receiving data in Bytes
+
+    # Create UDP socket
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    # Bind the socket to the server address and port
+    udp_socket.bind((server_ip, server_port))
+    
+    print(f"UDP server is listening on port {server_port}")
+
+    udp_socket.close()
 
 # A function to generate a mapping of cards to numbers
 def generate_card_mapping():
     # Define the card ranks and suits
-    ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+    ranks = ['A','2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
     suits = ['S', 'H', 'D', 'C']  # Spades, Hearts, Diamonds, Clubs
     
     # Initialize the card map
@@ -35,5 +52,4 @@ def get_card(number):
 
 # Example Usage:
 if __name__ == "__main__":
-    card_number = 1
-    print(f"Card {card_number} is: {get_card(card_number)}")  # Should print "Card 1 is: AS"
+    udp_server()
