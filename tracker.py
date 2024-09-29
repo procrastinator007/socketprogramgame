@@ -36,14 +36,14 @@ def udp_server():
                     
                     if command == "register":
                         register(input_string, client_ip)
-                    elif command == "start game" or command == "startgame":
-                        start_game(client_ip, client_port, input_string,)
-                    elif command == "end":
-                        end_game(input_string)
+                   # elif command == "start game" or command == "startgame":
+                   #     start_game(client_ip, client_port, input_string,)
+                   # elif command == "end":
+                   #     end_game(input_string)
                     elif command == "de-register":
-                        de_register(input_string)
-                    elif command == "join game":
-                        join_game(input_string)
+                        de_register(client_ip, client_port, input_string)
+                    #elif command == "join game":
+                     #   join_game(input_string)
                     else:
                         print("Invalid command.")
                 else:
@@ -126,127 +126,150 @@ def register(input_string, client_ip):
         player_group.append((player, ip_addr, t_port, p_port))
         print(f"Player '{player}' with IP {ip_addr}, t-port {t_port}, and p-port {p_port} has been registered.")
 
-def start_game(client_ip, client_port, input_string):
-    global player_group, game_identifier
+#def start_game(client_ip, client_port, input_string):
+   # global player_group, game_identifier
     
     # Split the input_string into <player>, <n>, <#holes>
-    try:
-        player, n_str, holes_str = input_string.split(',')
-        player = player.strip().replace('<', '').replace('>', '')
-        n = int(n_str.strip().replace('<', '').replace('>', ''))
-        holes = int(holes_str.strip().replace('<', '').replace('>', ''))
-    except ValueError:
-        send_message(client_ip, client_port, "Invalid input format. Expected <player>,<n>,<#holes>.")
-        return
+    #try:
+    #    player, n_str, holes_str = input_string.split(',')
+     #   player = player.strip().replace('<', '').replace('>', '')
+      #  n = int(n_str.strip().replace('<', '').replace('>', ''))
+       # holes = int(holes_str.strip().replace('<', '').replace('>', ''))
+    #except ValueError:
+     #   send_message(client_ip, client_port, "Invalid input format. Expected <player>,<n>,<#holes>.")
+      #  return
 
     # Check if player is registered in the player_group
-    registered_player = None
-    for entry in player_group:
-        if entry[0] == player:  # entry[0] is the player's name
-            registered_player = entry
-            break
+    #registered_player = None
+    #for entry in player_group:
+     #   if entry[0] == player:  # entry[0] is the player's name
+      #      registered_player = entry
+      #      break
     
-    if not registered_player:
-        send_message(client_ip, client_port, "You are not registered with that name. Try again.")
-        return
+    #if not registered_player:
+     #   send_message(client_ip, client_port, "You are not registered with that name. Try again.")
+     #   return
 
     # Check if the number of players is within the valid range (2 <= n <= 4)
-    if n < 2 or n > 4:
-        send_message(registered_player[1], registered_player[2], "Invalid number of players. Must be between 2 and 4.")
-        return
+    #if n < 2 or n > 4:
+      #  send_message(registered_player[1], registered_player[2], "Invalid number of players. Must be between 2 and 4.")
+     #   return
 
     # Check if the number of holes is in the range 1 <= holes <= 9, or set to 9 if -1
-    if holes == -1:
-        holes = 9
-    elif holes < 1 or holes > 9:
-        send_message(registered_player[1], registered_player[2], "Invalid number of holes. Must be between 1 and 9.")
-        return
+    #if holes == -1:
+     #   holes = 9
+    #elif holes < 1 or holes > 9:
+      #  send_message(registered_player[1], registered_player[2], "Invalid number of holes. Must be between 1 and 9.")
+     #   return
 
     # Append a new game entry to the game_identifier array
-    game_index = len(game_identifier)
-    game_name = f"{player}'s Game"
+    #game_index = len(game_identifier)
+    #game_name = f"{player}'s Game"
     
     # Create the player array {<index>, <player>}
-    players_array = [(1, registered_player)]  # Initially one player with index 1
+    #players_array = [(1, registered_player)]  # Initially one player with index 1
 
     # Game tuple: {<index>, <name>, <number of players in game>, <players needed>, <rounds>, <ongoing>}
-    game_entry = {
-        "index": game_index,
-        "name": game_name,
-        "players": players_array,
-        "players_needed": n - 1,  # Players still needed to start
-        "rounds": holes,
-        "ongoing": False  # Initially set to False
-    }
+    #game_entry = {
+        #"index": game_index,
+        #"name": game_name,
+        #"players": players_array,
+       # "players_needed": n - 1,  # Players still needed to start
+      #  "rounds": holes,
+     #   "ongoing": False  # Initially set to False
+    #}
 
-    game_identifier.append(game_entry)
+    #game_identifier.append(game_entry)
     
-    print(f"Game '{game_name}' created with {n} players and {holes} rounds.")
+    #print(f"Game '{game_name}' created with {n} players and {holes} rounds.")
 
     # Go to waiting room, then play game, then end game
-    waiting_room()
+    #waiting_room()
     #    if play_game():
      #       end_game()
 
 # join game has a formatted input of join game <player> <game_index>
-def join_game(message):
-    global game_identifier, player_group
+#def join_game(message):
+ #   global game_identifier, player_group
     
     # Split the input message to get player and game_index
-    stripped_message = message.strip('<>').strip()
-    player_name, game_index_str = stripped_message.split()
+  #  stripped_message = message.strip('<>').strip()
+   # player_name, game_index_str = stripped_message.split()
     
-    game_index = int(game_index_str)  # Convert game_index to an integer
+    #game_index = int(game_index_str)  # Convert game_index to an integer
 
     # Retrieve the game entry using the game_index
-    game_entry = next((game for game in game_identifier if game["index"] == game_index), None)
+    #game_entry = next((game for game in game_identifier if game["index"] == game_index), None)
 
-    if game_entry is None:
-        print(f"Game with index {game_index} not found.")
-        return  # Game not found, exit function
+    #if game_entry is None:
+     #   print(f"Game with index {game_index} not found.")
+      #  return  # Game not found, exit function
     
     # Find the player details in player_group
-    player_details = next((player for player in player_group if player[0] == player_name), None)
+    #player_details = next((player for player in player_group if player[0] == player_name), None)
     
-    if player_details is None:
-        print(f"Player {player_name} is not registered.")
-        return  # Player not registered, exit function
+    #if player_details is None:
+     #   print(f"Player {player_name} is not registered.")
+     #   return  # Player not registered, exit function
     
     # Copy the player details into a temp variable
-    temp_player = player_details  # This is a tuple (player, ip, t-port, p-port)
+    #temp_player = player_details  # This is a tuple (player, ip, t-port, p-port)
     
     # Append the player to the players_array of the game_entry
-    game_entry["players"].append((len(game_entry["players"]) + 1, temp_player))  # Using the next index for player
-    game_entry["players_needed"] -= 1  # Decrement players needed
+    #game_entry["players"].append((len(game_entry["players"]) + 1, temp_player))  # Using the next index for player
+    #game_entry["players_needed"] -= 1  # Decrement players needed
     
     # Check if players_needed is now 0
-    if game_entry["players_needed"] == 0:
-        game_entry["ongoing"] = True  # Set ongoing to true
+    #if game_entry["players_needed"] == 0:
+     #   game_entry["ongoing"] = True  # Set ongoing to true
     
     # Update the game_identifier array (not strictly necessary unless you want to maintain a reference)
-    for i in range(len(game_identifier)):
-        if game_identifier[i]["index"] == game_index:
-            game_identifier[i] = game_entry  # Update the game entry in the identifier array
+    #for i in range(len(game_identifier)):
+     #   if game_identifier[i]["index"] == game_index:
+      #      game_identifier[i] = game_entry  # Update the game entry in the identifier array
 
     # If the game is now ongoing, proceed to play game; otherwise, wait in the waiting room
-    if game_entry["ongoing"]:
-        play_game(game_entry)
-    else:
-        waiting_room()
+    #if game_entry["ongoing"]:
+     #   play_game(game_entry)
+    #else:
+      #  waiting_room()
 ####
 ##
 #
 #
 #
-def waiting_room():    
-    print("teri maa ki chut")
+#def waiting_room():    
+   # print("teri maa ki chut")
 
-def end_game(input_string):
-    print(f"Ending game with: {input_string}")
+#def end_game(input_string):
+    #print(f"Ending game with: {input_string}")
 
-def de_register(input_string):
-    print(f"Deregistering: {input_string}")
+def de_register(client_ip, client_port, input_string):
+    global player_group
+    
+    # Strip off the '<' and '>' from the input_string to extract the player name
+    player_name = input_string.strip('<>').strip()
+    
+    # Find the player in the player_group by comparing the player name
+    player_found = None
+    for player_tuple in player_group:
+        if player_tuple[0] == player_name:  # Compare player name
+            player_found = player_tuple
+            break
+    
+    # If player is found, remove them from player_group
+    if player_found:
+        player_group.remove(player_found)
+        print(f"Player {player_name} has been de-registered.")
+        
+        # Send a return message to the client
+        return_message = 'terminate'
+        send_message(client_ip,client_port,return_message)
+        print(f"Sent termination message to {client_ip}:{client_port}")
+    else:
+        print(f"Player {player_name} not found. No action taken.")
 
+#checks listed players
 def query_players(client_ip, client_port):
     global player_group
     
@@ -299,6 +322,7 @@ def send_message(ip, port, message):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.sendto(message.encode(), (ip, port))
 
+# checks ip address format
 def is_valid_ipv4(ip):
     """Validate if the given string is a valid IPv4 address in the format x.x.x.x where x < 256."""
     parts = ip.split('.')
@@ -315,7 +339,8 @@ def is_valid_ipv4(ip):
 
 # functions for start game
 # A function to generate a mapping of cards to numbers
-def generate_card_mapping():
+#
+#def generate_card_mapping():
     # Define the card ranks and suits
     ranks = ['A','2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
     suits = ['S', 'H', 'D', 'C']  # Spades, Hearts, Diamonds, Clubs
@@ -333,10 +358,10 @@ def generate_card_mapping():
             card_map[index] = card_string
             index += 1
     
-    return card_map
+    #return card_map
 
 # Function to get a card string based on the number (1 to 52)
-def get_card(number):
+#def get_card(number):
     # Validate if the input number is within range
     if number < 1 or number > 52:
         return "Invalid card number. Please enter a number between 1 and 52."

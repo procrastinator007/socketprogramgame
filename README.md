@@ -43,6 +43,8 @@ write a function join game on the server side has a string formatted input "<pla
     }
 use player name to retrieve its associated value from a global array of 4-tuple named: player_group = []  # Contains tuples like {player, ip, t-port, p-port}. once you copy the tuple on a temp variable append it in the players_array. decrement the players needed; if players needed == 0 then switch ongoing to true. update the game identifier array. exit the function and enter the function play game.  elif players needed =! 0 then let ongoing be false update game identifier exit the function and enter waiting_room function. 
 
+write a function de-register with an input named clientip and clientport and input_string that in the form <players> so you remove '< read the data and then remove >. take the message and look for it in the global array of tuples named player_group which has the following tuple {player, ip ,tport pport}. look for  the tuple by comparing player == message(<player> without the '<>'). once you find it delete the entry and update the global array. now take client ip and client port send a return message saying 'terminate' . 
+
 Player.py : 
 Create two separate sockets on the player side that randomly assign port numbers between the range of 32002 to 32499 and check if the port number is available. name one socket t-socket and the p-socket. and ports as t-port and p-port. retrive ip address from the system make sure the ip addr is same for both
 
@@ -64,3 +66,5 @@ What would you like to do today? Enter 1-5
 
 the choice is made == 1 so you launch a function called start game. It will take two inputs: number of players in the game 2<= x <=4 and another input being number of rounds or holes it needs to be in the range 1<= x<= 9. second input can be skipped if you just press enter that will set holes as -1 and that is acceptable. then you send a message to the server on the port 32001 "start game <player> <n> <#holes>" player is the name inputed at the very start which is a global variable.  n is the number of players and <# holes> is the second input so a sample message should look like == "start game <romeo> <3> <-1>" there should be exit interrupt command until you input value for holes (basically press escape to go back to previous page) this should throw you into startpage again.  once you input both the values it goes infinite loop of listening till a command from the server port interrupts. While it is in infinite loop of listening and user can have no inputs while in listening mode all it can do is just listen and execute commands from server side till it is asked for an input.
  print "waiting for players to join the game" 
+
+

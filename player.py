@@ -82,71 +82,68 @@ def startpage():
 
         choice = input("Enter your choice: ")
 
-        if choice == '1':
-            start_game()
-        elif choice == '2':
-            print("Joining a game of 6 card golf...")
+        # if choice == '1':
+            # start_game()
+        # elif choice == '2':
+            # print("Joining a game of 6 card golf...")
             # To be implemented
-            break
-        elif choice == '3':
-            print("Querying active players...")
+            # break
+        if choice == '3':
+            queryplayers()
             # To be implemented
-            break
         elif choice == '4':
-            print("Querying active games...")
+            querygames()
             # To be implemented
-            break
         elif choice == '5':
-            print("Exiting the game. Goodbye!")
-            break
+            dereg()
         else:
             print("Invalid choice. Please select a valid option.")
 
 # Function to start a game
-def start_game():
-    global player_name
+# def start_game():
+    # global player_name
 
     # Start the listener thread for server messages
-    listener_thread = threading.Thread(target=listen_for_server_commands)
-    listener_thread.daemon = True  # This will ensure the thread exits when the main program does
-    listener_thread.start()
-
-    while True:
-        try:
+    # listener_thread = threading.Thread(target=listen_for_server_commands)
+    # listener_thread.daemon = True  # This will ensure the thread exits when the main program does
+    # listener_thread.start()
+# 
+    # while True:
+        # try:
             # Input for the number of players
-            n = int(input("Enter number of players (2-4): "))
-            if 2 <= n <= 4:
-                break
-            else:
-                print("Invalid number of players. Please enter a number between 2 and 4.")
-        except ValueError:
-            print("Invalid input. Please enter a valid number.")
+            # n = int(input("Enter number of players (2-4): "))
+            # if 2 <= n <= 4:
+                # break
+            # else:
+                # print("Invalid number of players. Please enter a number between 2 and 4.")
+        # except ValueError:
+            # print("Invalid input. Please enter a valid number.")
 
-    while True:
-        try:
+    # while True:
+        # try:
             # Input for the number of rounds
-            holes_input = input("Enter number of rounds (1-9) or press Enter for default (-1): ")
-            if holes_input == '':
-                holes = -1  # Default value if no input
-                break
-            holes = int(holes_input)
-            if 1 <= holes <= 9:
-                break
-            elif holes == -1:
-                break
-            else:
-                print("Invalid number of holes. Please enter a number between 1 and 9 or leave blank for -1.")
-        except ValueError:
-            print("Invalid input. Please enter a valid number.")
+            # holes_input = input("Enter number of rounds (1-9) or press Enter for default (-1): ")
+            # if holes_input == '':
+                # holes = -1  # Default value if no input
+                # break
+            # holes = int(holes_input)
+            # if 1 <= holes <= 9:
+                # break
+            # elif holes == -1:
+                # break
+            # else:
+                # print("Invalid number of holes. Please enter a number between 1 and 9 or leave blank for -1.")
+        # except ValueError:
+            # print("Invalid input. Please enter a valid number.")
 
     # Send the start game message to the server
-    message = f"start game <{player_name}> <{n}> <{holes}>"
-    t_socket.sendto(message.encode(), (ip_address, 32001))
-    print("Waiting for players to join the game...")
+    # message = f"start game <{player_name}> <{n}> <{holes}>"
+    # t_socket.sendto(message.encode(), (ip_address, 32001))
+    # print("Waiting for players to join the game...")
 
     # Infinite listening loop for server commands
-    while True:
-        time.sleep(1)  # Prevents busy waiting
+    # while True:
+        # time.sleep(1)  # Prevents busy waiting
         # You can add logic to break this loop based on server responses or commands
 
 # Welcome function to start the program
@@ -155,6 +152,72 @@ def welcome():
     print("BEFORE PLAYING PLEASE ESTABLISH CONNECTION.")
     print("-X-")
     register()
+
+def queryplayers():
+    message = f"query players"
+    t_socket.sendto(message.encode(), (ip_address, 32001))
+    print(f"Sent 'query players' request to the server")
+    
+    # Wait indefinitely for a reply from the server
+    while True:
+        try:
+            # Receive the response from the server
+            data, server = t_socket.recvfrom(1024)  # Buffer size is 1024 bytes
+            response = data.decode()
+            
+            # Print the server response (list of active players)
+            print(f"{response}")
+            
+            # After receiving the response, return to the startpage() function
+            startpage()
+        
+        except Exception as e:
+            print(f"Error receiving data: {e}")
+            break
+
+def querygames():
+    message = f"query games"
+    t_socket.sendto(message.encode(), (ip_address, 32001))
+    print(f"Sent 'query players' request to the server")
+    
+    # Wait indefinitely for a reply from the server
+    while True:
+        try:
+            # Receive the response from the server
+            data, server = t_socket.recvfrom(1024)  # Buffer size is 1024 bytes
+            response = data.decode()
+            
+            # Print the server response (list of active players)
+            print(f"{response}")
+            
+            # After receiving the response, return to the startpage() function
+            startpage()
+        
+        except Exception as e:
+            print(f"Error receiving data: {e}")
+            break
+
+def dereg():
+    message = f"de-register <{player_name}>"
+    t_socket.sendto(message.encode(), (ip_address, 32001))
+    print(f"Sent 'de-register and exit' request to the server")
+    
+    # Wait indefinitely for a reply from the server
+    while True:
+        try:
+            # Receive the response from the server
+            data, server = t_socket.recvfrom(1024)  # Buffer size is 1024 bytes
+            response = data.decode()
+            
+            # Print the server response (list of active players)
+            print(f"{response}")
+            
+            # After receiving the response, return to the startpage() function
+            welcome()
+        
+        except Exception as e:
+            print(f"Error receiving data: {e}")
+            break
 
 # Main function to start player.py
 if __name__ == "__main__":
