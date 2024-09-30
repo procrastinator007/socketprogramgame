@@ -8,7 +8,8 @@ t_socket = None
 p_socket = None
 t_port = None
 p_port = None
-ip_address = None
+system_ip_address = None
+destination_ip_address = None
 player_name = None  # To store the player's name globally
 
 # Function to find an available port in the specified range
@@ -25,17 +26,16 @@ def find_available_port(start_port=32002, end_port=32499):
 
 # Function to create t-socket and p-socket
 def create_sockets():
-    global t_socket, p_socket, t_port, p_port, ip_address
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
-    
+    global t_socket, p_socket, t_port, p_port, system_ip_address, destination_ip_address
+    system_ip_address = input("Enter ip_address here: ")
+    destination_ip_address =  input("Enter server_address here: ")
     t_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     t_port = find_available_port()
-    t_socket.bind((ip_address, t_port))
+    t_socket.bind((system_ip_address, t_port))
     
     p_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     p_port = find_available_port()
-    p_socket.bind((ip_address, p_port))
+    p_socket.bind((system_ip_address, p_port))
 
 # Function to handle server messages in a separate thread
 def listen_for_server_commands():
@@ -59,8 +59,8 @@ def register():
         else:
             print("Error: Name is too long. Please try again.")
 
-    message = f"register <{player_name}> <{ip_address}> <{t_port}> <{p_port}>"
-    t_socket.sendto(message.encode(), (ip_address, 32001))
+    message = f"register <{player_name}> <{system_ip_address}> <{t_port}> <{p_port}>"
+    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
     
     print("Waiting for a response from the server...")
     while True:
@@ -148,14 +148,17 @@ def startpage():
 
 # Welcome function to start the program
 def welcome():
-    print("Welcome!")
-    print("BEFORE PLAYING PLEASE ESTABLISH CONNECTION.")
-    print("-X-")
-    register()
+    message= input("Welcome! do you want to play? (y/n) ")
+    if message.lower() == "n":
+        print("terminating")
+    else:
+        print("BEFORE PLAYING PLEASE ESTABLISH CONNECTION.")
+        print("-X-")
+        register()
 
 def queryplayers():
     message = f"query players"
-    t_socket.sendto(message.encode(), (ip_address, 32001))
+    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
     print(f"Sent 'query players' request to the server")
     
     # Wait indefinitely for a reply from the server
@@ -177,8 +180,8 @@ def queryplayers():
 
 def querygames():
     message = f"query games"
-    t_socket.sendto(message.encode(), (ip_address, 32001))
-    print(f"Sent 'query players' request to the server")
+    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+    print(f"Sent 'query games' request to the server")
     
     # Wait indefinitely for a reply from the server
     while True:
@@ -199,7 +202,7 @@ def querygames():
 
 def dereg():
     message = f"de-register <{player_name}>"
-    t_socket.sendto(message.encode(), (ip_address, 32001))
+    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
     print(f"Sent 'de-register and exit' request to the server")
     
     # Wait indefinitely for a reply from the server

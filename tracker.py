@@ -3,30 +3,37 @@ import socket
 # Global arrays
 player_group = []  # Contains tuples like {player, ip, t-port, p-port}
 game_identifier = []  # Stores ongoing game data
-
-
+server_port = None
+server_ip =None
+client_ip =None
+client_port =None
 #creating a UDP socket to recieve data
 def udp_server():
+    global server_port, server_ip, client_ip, client_port
     # Server-side setup: bind to port 32001
-    server_ip = "0.0.0.0"  # Listen on all interfaces
+    server_ip = input("Enter ip_address here: ")
     server_port = 32001
-    buffer_size = 1024  # Buffer size for receiving data in Bytes
-
+    
     # Create UDP socket
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
     # Bind the socket to the server address and port
     udp_socket.bind((server_ip, server_port))
-    
+    print("listening")
+
+
     while True:
         try:
             # Receive data from clients
-            data, client_address = udp_socket.recvfrom(buffer_size)
+            data, client_address = udp_socket.recvfrom(1024)
             client_ip, client_port = client_address
+            print("checking port")
+            
             
             # Check if the client port is within the specified range (32002 - 32499)
             if 32002 <= client_port <= 32499:
                 message = data.decode()
+                print("decoding data")
                 #processing the message 
                 if '<' in message:
                     command, _, input_string = message.partition('<')
@@ -35,6 +42,7 @@ def udp_server():
                     input_string = input_string.strip()  # Strip whitespace
                     
                     if command == "register":
+                        print("going to regis func")
                         register(input_string, client_ip)
                    # elif command == "start game" or command == "startgame":
                    #     start_game(client_ip, client_port, input_string,)
@@ -51,6 +59,7 @@ def udp_server():
                     if message == 'query players':
                         query_players(client_ip, client_port)
                     elif message == 'query games':
+                        print("querying games")
                         query_games(client_ip, client_port)
                     else:
                         print("Invalid input.")
@@ -65,6 +74,7 @@ def udp_server():
 
 #creating a function that registers players in the game
 def register(input_string, client_ip):
+    print("in register function")
     global player_group
     elements = []
     current_value = ""
@@ -74,6 +84,7 @@ def register(input_string, client_ip):
     for char in input_string:
         if char == '<':
             if inside_tag:
+                print("double <")
                 raise ValueError("Unexpected '<' detected inside an open tag.")
             inside_tag = True  # Start capturing a new value
             current_value = ""  # Reset the current value
@@ -125,6 +136,8 @@ def register(input_string, client_ip):
         # If all checks pass, add the player to the global player_group
         player_group.append((player, ip_addr, t_port, p_port))
         print(f"Player '{player}' with IP {ip_addr}, t-port {t_port}, and p-port {p_port} has been registered.")
+        message = "player registered"
+        send_message(client_ip,int(t_port),message)
 
 #def start_game(client_ip, client_port, input_string):
    # global player_group, game_identifier
@@ -293,7 +306,8 @@ def query_games(client_ip, client_port):
     
     # If no games are in the identifier, return a message
     if not game_identifier:
-        send_message(client_ip, client_port, "No games currently available.")
+        message = "No games currently available."
+        send_message(client_ip, client_port, message)
         return
 
     # Construct the message with all games' information
@@ -320,7 +334,7 @@ def query_games(client_ip, client_port):
 # functions for register: 
 def send_message(ip, port, message):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_socket.sendto(message.encode(), (ip, port))
+    udp_socket.sendto(message.encode(), (ip, int(port)))
 
 # checks ip address format
 def is_valid_ipv4(ip):
@@ -342,35 +356,35 @@ def is_valid_ipv4(ip):
 #
 #def generate_card_mapping():
     # Define the card ranks and suits
-    ranks = ['A','2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
-    suits = ['S', 'H', 'D', 'C']  # Spades, Hearts, Diamonds, Clubs
+ #   ranks = ['A','2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+ #   suits = ['S', 'H', 'D', 'C']  # Spades, Hearts, Diamonds, Clubs
     
     # Initialize the card map
-    card_map = {}
+ #   card_map = {}
     
     # Card index starts at 1 (Ace of Spades is 1)
-    index = 1
+  #  index = 1
     
     # Loop through each suit and rank to assign the card strings to the numbers
-    for suit in suits:
-        for rank in ranks:
-            card_string = rank + suit
-            card_map[index] = card_string
-            index += 1
+   # for suit in suits:
+    #    for rank in ranks:
+     #       card_string = rank + suit
+      #      card_map[index] = card_string
+       #     index += 1
     
     #return card_map
 
 # Function to get a card string based on the number (1 to 52)
 #def get_card(number):
     # Validate if the input number is within range
-    if number < 1 or number > 52:
-        return "Invalid card number. Please enter a number between 1 and 52."
+    #if number < 1 or number > 52:
+     #   return "Invalid card number. Please enter a number between 1 and 52."
     
     # Generate the card mapping
-    card_map = generate_card_mapping()
+   # card_map = generate_card_mapping()
     
     # Return the corresponding card string
-    return card_map[number]
+    #return card_map[number]
 
 # Example Usage:
 if __name__ == "__main__":
