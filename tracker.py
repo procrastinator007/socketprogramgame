@@ -1,4 +1,7 @@
 import socket
+import time 
+import threading
+import random
 
 # Global arrays
 player_group = []  # Contains tuples like {player, ip, t-port, p-port}
@@ -7,18 +10,13 @@ server_port = None
 server_ip =None
 client_ip =None
 client_port =None
+lock = threading.Lock()
+card_map = {}
+udp_socket = None
 #creating a UDP socket to recieve data
-def udp_server():
-    global server_port, server_ip, client_ip, client_port
-    # Server-side setup: bind to port 32001
-    server_ip = input("Enter ip_address here: ")
-    server_port = 32001
+def udp_server(udp_socket):
+    global server_port, client_ip, client_port
     
-    # Create UDP socket
-    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
-    # Bind the socket to the server address and port
-    udp_socket.bind((server_ip, server_port))
     print("listening")
 
 
@@ -42,16 +40,16 @@ def udp_server():
                     input_string = input_string.strip()  # Strip whitespace
                     
                     if command == "register":
-                        print("going to regis func")
+                        print("going to register function")
                         register(input_string, client_ip)
-                   # elif command == "start game" or command == "startgame":
-                   #     start_game(client_ip, client_port, input_string,)
-                   # elif command == "end":
-                   #     end_game(input_string)
+                    elif command == "startgame":
+                        start_game(client_ip, client_port, input_string)
+                    elif command == "end":
+                        end_game(input_string)
                     elif command == "de-register":
                         de_register(client_ip, client_port, input_string)
-                    #elif command == "join game":
-                     #   join_game(input_string)
+                    elif command == "join game":
+                        join_game(input_string)
                     else:
                         print("Invalid command.")
                 else:
@@ -139,123 +137,246 @@ def register(input_string, client_ip):
         message = "player registered"
         send_message(client_ip,int(t_port),message)
 
-#def start_game(client_ip, client_port, input_string):
-   # global player_group, game_identifier
+def start_game(client_ip, client_port, input_string):
+    global player_group, game_identifier
     
-    # Split the input_string into <player>, <n>, <#holes>
-    #try:
-    #    player, n_str, holes_str = input_string.split(',')
-     #   player = player.strip().replace('<', '').replace('>', '')
-      #  n = int(n_str.strip().replace('<', '').replace('>', ''))
-       # holes = int(holes_str.strip().replace('<', '').replace('>', ''))
-    #except ValueError:
-     #   send_message(client_ip, client_port, "Invalid input format. Expected <player>,<n>,<#holes>.")
-      #  return
-
-    # Check if player is registered in the player_group
-    #registered_player = None
-    #for entry in player_group:
-     #   if entry[0] == player:  # entry[0] is the player's name
-      #      registered_player = entry
-      #      break
+    print(f"Received input_string: {input_string}")
     
-    #if not registered_player:
-     #   send_message(client_ip, client_port, "You are not registered with that name. Try again.")
-     #   return
+    try:
+        # Extract the number of players and rounds from game_details
+        n_str, holes_str = input_string.strip('<>').split('>, <')
+        n = int(n_str.strip())
+        holes = int(holes_str.strip())
+        print(f"Parsed players: {n}, rounds: {holes}")
+    except ValueError:
+        print("Error: Invalid input string.")
+        send_message(client_ip, client_port, "Invalid input string.")
+        return
 
-    # Check if the number of players is within the valid range (2 <= n <= 4)
-    #if n < 2 or n > 4:
-      #  send_message(registered_player[1], registered_player[2], "Invalid number of players. Must be between 2 and 4.")
-     #   return
+    print("Checking if the player is registered...")
 
-    # Check if the number of holes is in the range 1 <= holes <= 9, or set to 9 if -1
-    #if holes == -1:
-     #   holes = 9
-    #elif holes < 1 or holes > 9:
-      #  send_message(registered_player[1], registered_player[2], "Invalid number of holes. Must be between 1 and 9.")
-     #   return
+    # Use the client IP to find the player name from the player_group
+    # Find the correct player tuple from player_group using the player_name from client_ip
+    registered_player = next((entry for entry in player_group if entry[1] == client_ip), None)
 
-    # Append a new game entry to the game_identifier array
-    #game_index = len(game_identifier)
-    #game_name = f"{player}'s Game"
+    if not registered_player:
+        print("Player not found.")
+        send_message(client_ip, client_port, "You are not registered with that IP and port.")
+        return
+
+    print(f"Creating game entry for {registered_player[0]}...")
+    game_index = len(game_identifier)
+    game_name = f"{registered_player[0]}'s Game"
     
-    # Create the player array {<index>, <player>}
-    #players_array = [(1, registered_player)]  # Initially one player with index 1
-
-    # Game tuple: {<index>, <name>, <number of players in game>, <players needed>, <rounds>, <ongoing>}
-    #game_entry = {
-        #"index": game_index,
-        #"name": game_name,
-        #"players": players_array,
-       # "players_needed": n - 1,  # Players still needed to start
-      #  "rounds": holes,
-     #   "ongoing": False  # Initially set to False
-    #}
-
-    #game_identifier.append(game_entry)
+    # Add player tuple to the temp_players_array
+    temp_players_array = [(1, registered_player[1], registered_player[2])]
     
-    #print(f"Game '{game_name}' created with {n} players and {holes} rounds.")
+    game_entry = {
+        "index": game_index,
+        "name": game_name,
+        "players": temp_players_array,
+        "players_needed": n - 1,
+        "rounds": holes,
+        "ongoing": False
+    }
 
-    # Go to waiting room, then play game, then end game
-    #waiting_room()
-    #    if play_game():
-     #       end_game()
+    game_identifier.append(game_entry)
+    print(f"Game '{game_name}' created with {n} players.")
+
+    # Call the waiting room logic to handle player waiting
+    waiting_room(game_entry)
+
 
 # join game has a formatted input of join game <player> <game_index>
-#def join_game(message):
- #   global game_identifier, player_group
+def join_game(message):
+    global game_identifier, player_group
     
     # Split the input message to get player and game_index
-  #  stripped_message = message.strip('<>').strip()
-   # player_name, game_index_str = stripped_message.split()
+    stripped_message = message.strip('<>').strip()
+    player_name, game_index_str = stripped_message.split()
     
-    #game_index = int(game_index_str)  # Convert game_index to an integer
+    game_index = int(game_index_str)  # Convert game_index to an integer
 
     # Retrieve the game entry using the game_index
-    #game_entry = next((game for game in game_identifier if game["index"] == game_index), None)
+    game_entry = next((game for game in game_identifier if game["index"] == game_index), None)
 
-    #if game_entry is None:
-     #   print(f"Game with index {game_index} not found.")
-      #  return  # Game not found, exit function
+    if game_entry is None:
+        print(f"Game with index {game_index} not found.")
+        return  # Game not found, exit function
     
-    # Find the player details in player_group
-    #player_details = next((player for player in player_group if player[0] == player_name), None)
+    #Find the player details in player_group
+    player_details = next((player for player in player_group if player[0] == player_name), None)
     
-    #if player_details is None:
-     #   print(f"Player {player_name} is not registered.")
-     #   return  # Player not registered, exit function
+    if player_details is None:
+        print(f"Player {player_name} is not registered.")
+        return  # Player not registered, exit function
     
     # Copy the player details into a temp variable
-    #temp_player = player_details  # This is a tuple (player, ip, t-port, p-port)
+    temp_player = player_details  # This is a tuple (player, ip, t-port, p-port)
     
     # Append the player to the players_array of the game_entry
-    #game_entry["players"].append((len(game_entry["players"]) + 1, temp_player))  # Using the next index for player
-    #game_entry["players_needed"] -= 1  # Decrement players needed
+    game_entry["players"].append((len(game_entry["players"]) + 1, temp_player))  # Using the next index for player
+    game_entry["players_needed"] -= 1  # Decrement players needed
     
-    # Check if players_needed is now 0
-    #if game_entry["players_needed"] == 0:
-     #   game_entry["ongoing"] = True  # Set ongoing to true
     
     # Update the game_identifier array (not strictly necessary unless you want to maintain a reference)
-    #for i in range(len(game_identifier)):
-     #   if game_identifier[i]["index"] == game_index:
-      #      game_identifier[i] = game_entry  # Update the game entry in the identifier array
+    for i in range(len(game_identifier)):
+        if game_identifier[i]["index"] == game_index:
+            game_identifier[i] = game_entry  # Update the game entry in the identifier array
 
-    # If the game is now ongoing, proceed to play game; otherwise, wait in the waiting room
-    #if game_entry["ongoing"]:
-     #   play_game(game_entry)
-    #else:
-      #  waiting_room()
+    else:
+        waiting_room()
 ####
 ##
 #
 #
 #
-#def waiting_room():    
-   # print("teri maa ki chut")
 
-#def end_game(input_string):
-    #print(f"Ending game with: {input_string}")
+
+def waiting_room(game_entry):
+    global udp_socket
+    print(f"Entering waiting room for {game_entry['name']}...")
+
+    # Check for players_needed in the game
+    if game_entry["players_needed"] > 0:
+        # Notify all players that the game is still waiting for more players
+        for player_tuple in game_entry["players"]:
+            player_ip, player_port = player_tuple[1], player_tuple[2]
+            send_message(player_ip, player_port, "Still waiting for more players...")
+        print(f"Still waiting for players to join {game_entry['name']}. Players needed: {game_entry['players_needed']}")
+        udp_server(udp_socket) # Go back to udp_server() to keep listening for more players
+    else:
+        # If players_needed == 0, start the game
+        game_entry["ongoing"] = True
+        print(f"Starting game: {game_entry['name']}")
+
+        # Notify all players that the game is starting
+        for player_tuple in game_entry["players"]:
+            player_ip, player_port = player_tuple[1], player_tuple[2]
+            send_message(player_ip, player_port, "Game_started")
+        
+        # Proceed with the game logic
+        temp_player_group = [player_tuple[1] for player_tuple in game_entry["players"]]
+        play_game(temp_player_group, game_entry["rounds"])
+
+
+
+
+        
+def play_game(players, rounds):
+    # Initialize the deck, shuffle, and deal 6 cards to each player
+    deck = list(range(1, 53))  # Full deck
+    random.shuffle(deck)
+    
+    player_hands = {}
+    visible_cards = {player[0]: [False] * 6 for player in players}  # Initially no cards are visible
+    for player in players:
+        hand = random.sample(deck, 6)
+        player_hands[player[0]] = hand
+        for card in hand:
+            deck.remove(card)
+
+    discard_stack = [deck.pop(0)]  # Initialize discard stack
+
+    # Send the initial hidden hand and discard stack to players
+    for player in players:
+        player_name, ipaddr, t_port, _ = player
+        message = format_message(player_name, player_hands, discard_stack, visible_cards)
+        send_udp_message(ipaddr, t_port, message)
+    
+    # Step 1: Ask for the first two cards to reveal
+    for player in players:
+        player_name, ipaddr, t_port, _ = player
+        send_udp_message(ipaddr, t_port, "Select two cards to reveal (enter two integers):")
+        selected = listen_for_player_action(ipaddr, t_port)
+        # Reveal the selected cards
+        visible_cards[player_name][selected[0] - 1] = True
+        visible_cards[player_name][selected[1] - 1] = True
+
+    # Step 2: Play rounds
+    for _ in range(rounds):
+        for i, player in enumerate(players):
+            player_name, ipaddr, t_port, _ = player
+            # Announce it's this player's turn and others should wait
+            for p in players:
+                if p[0] == player_name:
+                    send_udp_message(p[1], p[2], "Your turn!")
+                else:
+                    send_udp_message(p[1], p[2], "Wait for your turn...")
+            
+            # Get player's action (swap or show next)
+            player_action = listen_for_player_action(ipaddr, t_port)
+
+            # Handle player's action: either swap or reveal
+            handle_player_action(player_name, player_hands, player_action, discard_stack, visible_cards)
+
+            # Send the updated hand and discard stack to all players
+            for p in players:
+                message = format_message(p[0], player_hands, discard_stack, visible_cards)
+                send_udp_message(p[1], p[2], message)
+
+        # End the game if any player reveals all their cards
+        if any(all(visible for visible in v_cards) for v_cards in visible_cards.values()):
+            break
+
+    # After rounds or if a player reveals all cards, end game
+    end_game_logic(players, player_hands, visible_cards)
+
+def format_message(player_name, player_hands, discard_stack, visible_cards):
+    message = "\nYour cards:\n"
+    player_hand = player_hands[player_name]
+    message += format_hand(player_hand, visible_cards[player_name]) + "\n"
+    
+    for other_player, hand in player_hands.items():
+        if other_player != player_name:
+            message += f"{other_player}'s cards:\n"
+            message += format_hand(hand, visible_cards[other_player]) + "\n"
+    
+    message += "Discard Stack:\n"
+    message += get_card(discard_stack[-1]) + "\n"
+    return message
+
+def format_hand(hand, visible):
+    hand_str = ""
+    for i, card in enumerate(hand):
+        if visible[i]:
+            hand_str += f"{get_card(card)}  "
+        else:
+            hand_str += "***  "
+        if (i + 1) % 3 == 0:
+            hand_str += "\n"
+    return hand_str
+
+def handle_player_action(player_name, player_hands, action, discard_stack, visible_cards):
+    if action[0] == "swap":
+        card_index = int(action[1]) - 1
+        visible_cards[player_name][card_index] = True
+        discard_stack.insert(0, player_hands[player_name][card_index])
+        player_hands[player_name][card_index] = discard_stack.pop(1)
+    elif action[0] == "show":
+        discard_stack.pop(0)  # Discard top
+        new_top = discard_stack[0]
+        send_udp_message(player_name, "New top of the discard stack: " + get_card(new_top))
+
+def listen_for_player_action(ipaddr, t_port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind((ipaddr, t_port))
+    while True:
+        data, _ = sock.recvfrom(1024)
+        action = data.decode().strip().split()
+        if action[0] in {"swap", "show"} and len(action) >= 2:
+            return action
+
+def end_game_logic(players, player_hands, visible_cards):
+    scores = {p[0]: sum(visible_cards[p[0]]) for p in players}
+    winner = max(scores, key=scores.get)
+    for p in players:
+        send_udp_message(p[1], p[2], f"Game over! The winner is {winner}.")
+
+def send_udp_message(ipaddr, port, message):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(message.encode(), (ipaddr, port))
+    sock.close()
 
 def de_register(client_ip, client_port, input_string):
     global player_group
@@ -354,38 +475,47 @@ def is_valid_ipv4(ip):
 # functions for start game
 # A function to generate a mapping of cards to numbers
 #
-#def generate_card_mapping():
+def generate_card_mapping():
     # Define the card ranks and suits
- #   ranks = ['A','2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
- #   suits = ['S', 'H', 'D', 'C']  # Spades, Hearts, Diamonds, Clubs
+    ranks = ['A','2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+    suits = ['S', 'H', 'D', 'C']  # Spades, Hearts, Diamonds, Clubs
     
     # Initialize the card map
- #   card_map = {}
+    card_map = {}
     
     # Card index starts at 1 (Ace of Spades is 1)
-  #  index = 1
+    index = 1
     
     # Loop through each suit and rank to assign the card strings to the numbers
-   # for suit in suits:
-    #    for rank in ranks:
-     #       card_string = rank + suit
-      #      card_map[index] = card_string
-       #     index += 1
+    for suit in suits:
+        for rank in ranks:
+            card_string = rank + suit
+            card_map[index] = card_string
+            index += 1
     
-    #return card_map
+    return card_map
 
 # Function to get a card string based on the number (1 to 52)
-#def get_card(number):
+def get_card(number):
     # Validate if the input number is within range
-    #if number < 1 or number > 52:
-     #   return "Invalid card number. Please enter a number between 1 and 52."
+    if number < 1 or number > 52:
+        return "Invalid card number. Please enter a number between 1 and 52."
     
     # Generate the card mapping
-   # card_map = generate_card_mapping()
+    card_map = generate_card_mapping()
     
-    # Return the corresponding card string
-    #return card_map[number]
+    #Return the corresponding card string
+    return card_map[number]
 
 # Example Usage:
 if __name__ == "__main__":
-    udp_server()
+    card_map = generate_card_mapping()
+    server_ip = input("Enter ip_address here: ")
+    server_port = 32001
+    
+    # Create UDP socket
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    # Bind the socket to the server address and port
+    udp_socket.bind((server_ip, server_port))
+    udp_server(udp_socket)

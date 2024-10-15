@@ -11,6 +11,7 @@ p_port = None
 system_ip_address = None
 destination_ip_address = None
 player_name = None  # To store the player's name globally
+in_game = False
 
 # Function to find an available port in the specified range
 def find_available_port(start_port=32002, end_port=32499):
@@ -27,8 +28,8 @@ def find_available_port(start_port=32002, end_port=32499):
 # Function to create t-socket and p-socket
 def create_sockets():
     global t_socket, p_socket, t_port, p_port, system_ip_address, destination_ip_address
-    system_ip_address = input("Enter ip_address here: ")
-    destination_ip_address =  input("Enter server_address here: ")
+    system_ip_address = input("Enter your IP address: ")
+    destination_ip_address = input("Enter server IP address: ")
     t_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     t_port = find_available_port()
     t_socket.bind((system_ip_address, t_port))
@@ -39,12 +40,21 @@ def create_sockets():
 
 # Function to handle server messages in a separate thread
 def listen_for_server_commands():
-    global player_name
+    global player_name, in_game
     while True:
         try:
             response, _ = t_socket.recvfrom(1024)
-            print("Server response:", response.decode())
-            # You can add additional handling based on specific commands from the server
+            message = response.decode()
+            print(f"\nServer response: {message}")
+            
+            if "Your turn!" in message:
+                take_turn()
+            elif "Select two cards to reveal" in message:
+                reveal_initial_cards()
+            elif "Game over!" in message:
+                in_game = False
+                print("The game has ended. Returning to start page...")
+                startpage()
         except Exception as e:
             print("Error receiving message:", e)
 
@@ -82,69 +92,127 @@ def startpage():
 
         choice = input("Enter your choice: ")
 
-        # if choice == '1':
-            # start_game()
-        # elif choice == '2':
-            # print("Joining a game of 6 card golf...")
-            # To be implemented
-            # break
+        if choice == '1':
+            start_game()
+        elif choice == '2':
+            print("Joining a game of 6 card golf...")
         if choice == '3':
             queryplayers()
-            # To be implemented
         elif choice == '4':
             querygames()
-            # To be implemented
         elif choice == '5':
             dereg()
         else:
             print("Invalid choice. Please select a valid option.")
 
-# Function to start a game
-# def start_game():
-    # global player_name
+
+def start_game():
+    global player_name, in_game, system_ip_address, p_port
 
     # Start the listener thread for server messages
-    # listener_thread = threading.Thread(target=listen_for_server_commands)
-    # listener_thread.daemon = True  # This will ensure the thread exits when the main program does
-    # listener_thread.start()
-# 
-    # while True:
-        # try:
-            # Input for the number of players
-            # n = int(input("Enter number of players (2-4): "))
-            # if 2 <= n <= 4:
-                # break
-            # else:
-                # print("Invalid number of players. Please enter a number between 2 and 4.")
-        # except ValueError:
-            # print("Invalid input. Please enter a valid number.")
+    listener_thread = threading.Thread(target=listen_for_server_commands)
+    listener_thread.daemon = True
+    listener_thread.start()
+    
+    # Get the number of players
+    while True:
+        try:
+            n = int(input("Enter number of players (2-4): "))
+            if 2 <= n <= 4:
+                break
+            else:
+                print("Invalid number of players. Please enter a number between 2 and 4.")
+        except ValueError:
+            print("Invalid input. Please enter a valid number.")
 
-    # while True:
-        # try:
-            # Input for the number of rounds
-            # holes_input = input("Enter number of rounds (1-9) or press Enter for default (-1): ")
-            # if holes_input == '':
-                # holes = -1  # Default value if no input
-                # break
-            # holes = int(holes_input)
-            # if 1 <= holes <= 9:
-                # break
-            # elif holes == -1:
-                # break
-            # else:
-                # print("Invalid number of holes. Please enter a number between 1 and 9 or leave blank for -1.")
-        # except ValueError:
-            # print("Invalid input. Please enter a valid number.")
+    # Get the number of rounds (holes)
+    while True:
+        try:
+            holes_input = input("Enter number of rounds (1-9) or press Enter for default (-1): ")
+            if holes_input == '':
+                holes = -1  # Default value if no input
+                break
+            else:
+                holes = int(holes_input)
+            if 1 <= holes <= 9 or holes == -1:
+                break
+            else:
+                print("Invalid number of rounds.")
+        except ValueError:
+            print("Invalid input. Please enter a valid number.")
 
-    # Send the start game message to the server
-    # message = f"start game <{player_name}> <{n}> <{holes}>"
-    # t_socket.sendto(message.encode(), (ip_address, 32001))
-    # print("Waiting for players to join the game...")
+    # Create the input_string in the format <<n>, <holes>>
+    input_string = f"<{n}>, <{holes}>"
+    
+    # Send the start game message to the server in the required format
+    message = f"startgame <{input_string}>"
+    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+  
+    print("Waiting for players to join the game...")
 
-    # Infinite listening loop for server commands
-    # while True:
-        # time.sleep(1)  # Prevents busy waiting
-        # You can add logic to break this loop based on server responses or commands
+    # Wait for the "Game_started" message from the server
+    while True:
+        response, _ = t_socket.recvfrom(1024)
+        decoded_response = response.decode()
+
+        if "Game_started" in decoded_response:
+            print("Game is starting now!")
+            break  # Exit the loop when the game starts
+        else:
+            print(f"Received message from server: {decoded_response}")
+
+    # Set the in_game flag to True
+    in_game = True
+
+
+def join_game():
+    game_index = input("Enter the game index to join: ")
+    message = f"join game <{player_name}> <{game_index}>"
+    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+    print(f"Requested to join game {game_index}.")
+
+    # Wait for the "Game_started" message
+    while True:
+        response, _ = t_socket.recvfrom(1024)
+        decoded_response = response.decode()
+        if "Game_started" in decoded_response:
+            print("Game is starting now!")
+            break
+        else:
+            print(f"Waiting for the game to start. Received message: {decoded_response}")
+
+
+def take_turn():
+    print("It's your turn! You can either swap a card or show the top of the discard stack.")
+    while True:
+        action = input("Enter 'swap' or 'show': ").strip().lower()
+        if action == "swap":
+            card_position = input("Enter the position (1-6) of the card you want to swap: ")
+            message = f"swap {card_position}"
+            t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+            break
+        elif action == "show":
+            message = "show"
+            t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+            break
+        else:
+            print("Invalid action. Please enter 'swap' or 'show'.")
+
+def reveal_initial_cards():
+    print("You need to reveal two cards.")
+    while True:
+        try:
+            first_card = int(input("Enter the first card position (1-6): "))
+            second_card = int(input("Enter the second card position (1-6): "))
+            if 1 <= first_card <= 6 and 1 <= second_card <= 6:
+                message = f"{first_card} {second_card}"
+                t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+                break
+            else:
+                print("Invalid card positions. Please enter numbers between 1 and 6.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
 
 # Welcome function to start the program
 def welcome():
