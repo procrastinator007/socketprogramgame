@@ -175,7 +175,7 @@ def handle_show_and_pass_action(game_info, player_name):
     previous_player_ip, previous_player_port = previous_player[1], previous_player[2]
 
     # Prompt the previous player for a swap or pass action
-    send_udp_message(previous_player_ip, int(previous_player_port),"Your turn! You must now swap the top of the discard stack with one of your cards or pass.").
+    send_udp_message(previous_player_ip, int(previous_player_port),"Your turn! You must now swap the top of the discard stack with one of your cards or pass.")
 
     # Allow the player to pass after showing
     game_info["game_state"]["can_pass"] = True
