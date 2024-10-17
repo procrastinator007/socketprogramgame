@@ -40,6 +40,7 @@ def create_sockets():
 
 # Function to handle server messages in a separate thread
 def listen_for_server_commands():
+    
     global player_name, in_game
     while True:
         try:
@@ -47,10 +48,13 @@ def listen_for_server_commands():
             message = response.decode()
             print(f"\nServer response: {message}")
             
+            # Check for different server instructions
             if "Your turn!" in message:
-                take_turn()
-            elif "Select two cards to reveal" in message:
-                reveal_initial_cards()
+                take_turn()  # Process the turn for swap or show
+            elif "reveal two cards by sending the 'reveal <card1> <card2>' command." in message:
+                reveal_initial_cards()  # First-round reveal cards
+            elif "Please wait for your turn." in message:
+                print("Please wait for your turn.")
             elif "Game over!" in message:
                 in_game = False
                 print("The game has ended. Returning to start page...")
@@ -95,7 +99,7 @@ def startpage():
         if choice == '1':
             start_game()
         elif choice == '2':
-            print("Joining a game of 6 card golf...")
+            join_game()
         if choice == '3':
             queryplayers()
         elif choice == '4':
@@ -157,6 +161,7 @@ def start_game():
 
         if "Game_started" in decoded_response:
             print("Game is starting now!")
+            listen_for_server_commands()
             break  # Exit the loop when the game starts
         else:
             print(f"Received message from server: {decoded_response}")
@@ -166,6 +171,25 @@ def start_game():
 
 
 def join_game():
+    message = f"query games"
+    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+    print(f"Sent 'query games' request to the server")
+    
+    # Wait indefinitely for a reply from the server
+    while True:
+        try:
+            # Receive the response from the server
+            data, server = t_socket.recvfrom(1024)  # Buffer size is 1024 bytes
+            response = data.decode()
+            
+            # Print the server response (list of active players)
+            print(f"{response}")
+            break
+        except Exception as e:
+            print(f"Error receiving data: {e}")
+            break
+
+
     game_index = input("Enter the game index to join: ")
     message = f"join game <{player_name}> <{game_index}>"
     t_socket.sendto(message.encode(), (destination_ip_address, 32001))
@@ -177,26 +201,61 @@ def join_game():
         decoded_response = response.decode()
         if "Game_started" in decoded_response:
             print("Game is starting now!")
+            listen_for_server_commands()
             break
         else:
             print(f"Waiting for the game to start. Received message: {decoded_response}")
 
 
-def take_turn():
-    print("It's your turn! You can either swap a card or show the top of the discard stack.")
+def listen_for_server_commands():
+    global player_name, in_game
     while True:
-        action = input("Enter 'swap' or 'show': ").strip().lower()
-        if action == "swap":
-            card_position = input("Enter the position (1-6) of the card you want to swap: ")
-            message = f"swap {card_position}"
+        try:
+            response, _ = t_socket.recvfrom(1024)
+            message = response.decode()
+            print(f"\nServer response: {message}")  # Debug print to see every message
+
+            if "Your turn!" in message:
+                print("Received 'Your turn' command.")
+                take_turn()  # Process the turn for swap or show
+            elif "Please reveal two cards" in message:
+                print("Received 'Please reveal two cards' command.")
+                reveal_initial_cards()  # First-round reveal cards
+            elif "Game over!" in message:
+                in_game = False
+                print("The game has ended. Returning to start page...")
+                startpage()
+        except Exception as e:
+            print("Error receiving message:", e)
+
+
+def take_turn():
+    print("It's your turn! You can either swap a card, show the discard stack, or pass.")
+    while True:
+        action = input("Enter 'swap top <index>', 'show' to reveal the discard stack top, or 'pass' to skip: ").strip().lower()
+
+        if action.startswith("swap"):
+            try:
+                card_position = int(action.split()[2])  # Expecting input format 'swap top <index>'
+                if 1 <= card_position <= 6:
+                    message = f"swap top {card_position}"
+                    t_socket.sendto(message.encode(), (destination_ip_address, 32001))
+                    break
+                else:
+                    print("Invalid card position. Please enter a number between 1 and 6.")
+            except (IndexError, ValueError):
+                print("Invalid format. Use 'swap top <index>' where <index> is a number between 1 and 6.")
+        elif action == "show":
+            message = "show"  # The player chooses to show the top of the discard stack
             t_socket.sendto(message.encode(), (destination_ip_address, 32001))
             break
-        elif action == "show":
-            message = "show"
+        elif action == "pass":
+            message = "swap pass"  # Player chooses to pass (discard the top card)
             t_socket.sendto(message.encode(), (destination_ip_address, 32001))
             break
         else:
-            print("Invalid action. Please enter 'swap' or 'show'.")
+            print("Invalid action. Please enter 'swap top <index>', 'show', or 'pass'.")
+
 
 def reveal_initial_cards():
     print("You need to reveal two cards.")
@@ -205,7 +264,7 @@ def reveal_initial_cards():
             first_card = int(input("Enter the first card position (1-6): "))
             second_card = int(input("Enter the second card position (1-6): "))
             if 1 <= first_card <= 6 and 1 <= second_card <= 6:
-                message = f"{first_card} {second_card}"
+                message = f"reveal {first_card} {second_card}"  # Send the 'reveal' command
                 t_socket.sendto(message.encode(), (destination_ip_address, 32001))
                 break
             else:
