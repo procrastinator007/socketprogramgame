@@ -104,7 +104,6 @@ def udp_server(udp_socket):
     udp_socket.close()
 
 
-
 def handle_game_action(game_info, action, client_ip, client_port):
     player_name = next((p[0] for p in game_info["players"] if p[1] == client_ip and str(p[2]) == str(client_port)), None)
     print(player_name)
@@ -117,8 +116,6 @@ def handle_game_action(game_info, action, client_ip, client_port):
             handle_show_and_pass_action(game_info, player_name)
     else:
         print(f"Unknown player {client_ip}:{client_port} attempted to take an action.")
-
-
 
 
 # Handles the reveal action in the game
@@ -149,8 +146,6 @@ def handle_reveal_action(game_info, player_name, action):
         print(f"Error processing reveal action: {e}")
 
 
-
-
 # Handles the swap action in the game
 def handle_show_and_pass_action(game_info, player_name):
     discard_stack = game_info["game_state"]["discard_stack"]
@@ -179,7 +174,7 @@ def handle_show_and_pass_action(game_info, player_name):
     previous_player = game_info["players"][previous_player_index]
     previous_player_ip, previous_player_port = previous_player[1], previous_player[2]
 
-# Prompt the previous player for a swap or pass action
+    # Prompt the previous player for a swap or pass action
     send_udp_message(previous_player_ip, int(previous_player_port),"Your turn! You must now swap the top of the discard stack with one of your cards or pass.").
 
     # Allow the player to pass after showing
@@ -238,16 +233,21 @@ def process_next_player(game_info):
     players = game_info["players"]
     round_count = game_info["game_state"]["round"]
 
-    # If all players have had their turn, reset current player and increment the round
-    if game_info["game_state"]["current_player"] >= len(players):
-        game_info["game_state"]["current_player"] = 0
-        game_info["game_state"]["round"] += 1
-        round_count = game_info["game_state"]["round"]
+    # Check if all the cards of the previous player (current_player - 1) are visible
+    previous_player_index = (game_info["game_state"]["current_player"] - 1) % len(players)
+    previous_player = players[previous_player_index]
+    previous_player_name = previous_player[0]
 
-    # If the round exceeds the allowed rounds, end the game
+    # If all cards of the previous player are visible, make the current round the final round
+    if all(game_info["game_state"]["visible_cards"][previous_player_name]):
+        print(f"All cards of {previous_player_name} are visible. Ending the game after this round.")
+        game_info["game_state"]["round"] = game_info["rounds"]  # Set the current round as the final round
+
+    # Check if the game has exceeded the allowed number of rounds
     if round_count >= game_info["rounds"]:
-        end_game_logic(players, game_info["game_state"]["player_hands"], game_info["game_state"]["visible_cards"])
+        end_game_logic(players, game_info["game_state"]["player_hands"], game_info["game_state"]["visible_cards"], game_info["game_id"])
     else:
+        # Move to the next player
         current_player = players[game_info["game_state"]["current_player"]]
         player_name, ipaddr, t_port, _ = current_player
         game_info["game_state"]["current_player"] += 1
@@ -336,6 +336,7 @@ def register(input_string, client_ip):
         print(f"Player '{player}' with IP {ip_addr}, t-port {t_port}, and p-port {p_port} has been registered.")
         message = "player registered"
         send_message(client_ip,int(t_port),message)
+
 
 def start_game(client_ip, client_port, input_string):
     global player_group, game_identifier
@@ -437,13 +438,6 @@ def join_game(input_string):
     print(f"Player {player_name} has joined game {game_index}.")
     waiting_room(game_entry)
 
-
-
-####
-##
-#
-#
-#
 
 
 def waiting_room(game_entry):
@@ -592,13 +586,61 @@ def format_hand(hand, visible):
     return hand_str
 
 
+def end_game_logic(players, player_hands, visible_cards, game_id):
+    global udp_socket
+    # Make all cards visible
+    for player in players:
+        visible_cards[player[0]] = [True] * 6
 
+    # Send final game state to all players
+    for player in players:
+        player_name, ipaddr, t_port, _ = player
+        message = format_message(player_name, player_hands, None, visible_cards)  # No discard stack after game ends
+        send_udp_message(ipaddr, int(t_port), message)
 
-def end_game_logic(players, player_hands, visible_cards):
-    scores = {p[0]: sum(visible_cards[p[0]]) for p in players}
-    winner = max(scores, key=scores.get)
-    for p in players:
-        send_udp_message(p[1], p[2], f"Game over! The winner is {winner}.")
+    # Calculate scores
+    scores = {}
+    for player_name, hand in player_hands.items():
+        score = 0
+        for i, card in enumerate(hand):
+            card_value = get_card_value(card)
+            if i < 3 and hand[i] == hand[i + 3]:  # Check for pairs in positions (1 and 4), (2 and 5), (3 and 6)
+                score += 0  # Pair rule: both cards become zero
+            else:
+                score += card_value
+        scores[player_name] = score
+
+    # Find the player with the lowest score
+    winner = min(scores, key=scores.get)
+
+    # Send the game result to all players
+    for player in players:
+        player_name, ipaddr, t_port, _ = player
+        final_message = f"Game over! The winner is {winner}. Final scores:\n"
+        for p, score in scores.items():
+            final_message += f"{p}: {score} points\n"
+        send_udp_message(ipaddr, int(t_port), final_message)
+
+    # Remove game data from all tracking lists
+    remove_game_data(game_id)
+
+    # Return to UDP server listening state
+    print(f"Game {game_id} ended. Returning to UDP server listening state.")
+    udp_server(udp_socket)
+
+def remove_game_data(game_id):
+    global game_registry, player_game_map, game_identifier
+
+    # Remove game from game_registry
+    game_registry = [game for game in game_registry if game[0] != game_id]
+
+    # Remove game from player_game_map
+    player_game_map = [entry for entry in player_game_map if entry[1] != game_id]
+
+    # Remove game from game_identifier if it exists
+    game_identifier = [game for game in game_identifier if game["index"] != game_id]
+
+    print(f"Game ID {game_id} has been removed from all data structures.")
 
 def send_udp_message(ipaddr, port, message):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -705,9 +747,39 @@ def is_valid_ipv4(ip):
     return True
 
 
-# functions for start game
-# A function to generate a mapping of cards to numbers
-#
+def get_card_value(card_number):
+    # Calculate the card value based on the given card number
+    card_rank = (card_number - 1) % 13 + 1  # Card rank from 1 to 13 (A, 2, 3, ..., K)
+    
+    if card_rank == 1:  # Ace
+        return -1
+    elif card_rank == 2:  # 2
+        return -2
+    elif card_rank == 3:  # 3
+        return 3
+    elif card_rank == 4:  # 4
+        return 4
+    elif card_rank == 5:  # 5
+        return 5
+    elif card_rank == 6:  # 6
+        return 6
+    elif card_rank == 7:  # 7
+        return 7
+    elif card_rank == 8:  # 8
+        return 8
+    elif card_rank == 9:  # 9
+        return 9
+    elif card_rank == 10:  # 10, J, Q
+        return 10
+    elif card_rank == 11:  # J
+        return 10
+    elif card_rank == 12:  # Q
+        return 10
+    elif card_rank == 13:  # K
+        return 0
+    return 0
+
+
 def generate_card_mapping():
     # Define the card ranks and suits
     ranks = ['A','2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
