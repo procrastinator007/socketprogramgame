@@ -2,6 +2,7 @@ import socket
 import random
 import threading
 import time
+import sys
 
 # Global variables
 t_socket = None
@@ -58,7 +59,11 @@ def listen_for_server_commands():
             elif "Game over!" in message:
                 in_game = False
                 print("The game has ended. Returning to start page...")
+                time.sleep(5)
                 startpage()
+            elif "You have already shown the discard stack." in message:
+                print("Cannot send show again send pass or swap")
+                take_turn()
         except Exception as e:
             print("Error receiving message:", e)
 
@@ -207,26 +212,6 @@ def join_game():
             print(f"Waiting for the game to start. Received message: {decoded_response}")
 
 
-def listen_for_server_commands():
-    global player_name, in_game
-    while True:
-        try:
-            response, _ = t_socket.recvfrom(1024)
-            message = response.decode()
-            print(f"\nServer response: {message}")  # Debug print to see every message
-
-            if "Your turn!" in message:
-                print("Received 'Your turn' command.")
-                take_turn()  # Process the turn for swap or show
-            elif "Please reveal two cards" in message:
-                print("Received 'Please reveal two cards' command.")
-                reveal_initial_cards()  # First-round reveal cards
-            elif "Game over!" in message:
-                in_game = False
-                print("The game has ended. Returning to start page...")
-                startpage()
-        except Exception as e:
-            print("Error receiving message:", e)
 
 
 def take_turn():
@@ -341,9 +326,9 @@ def dereg():
             
             # Print the server response (list of active players)
             print(f"{response}")
-            
-            # After receiving the response, return to the startpage() function
-            welcome()
+            time.sleep(3)
+            print("Exiting the program...")
+            sys.exit(0)  # Terminate the program gracefully
         
         except Exception as e:
             print(f"Error receiving data: {e}")
