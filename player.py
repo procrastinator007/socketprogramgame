@@ -58,9 +58,7 @@ def listen_for_server_commands():
                 print("Please wait for your turn.")
             elif "Game over!" in message:
                 in_game = False
-                print("The game has ended. Returning to start page...")
-                time.sleep(5)
-                startpage()
+                handle_game_over()
             elif "You have already shown the discard stack." in message:
                 print("Cannot send show again send pass or swap")
                 take_turn()
@@ -91,7 +89,8 @@ def register():
 
 # Function for the start page
 def startpage():
-    while True:
+    global in_game
+    while in_game == False:
         print("\nWhat would you like to do today? Enter 1-5")
         print("1. Start a game of 6 card golf.")
         print("2. Join a game of 6 card golf.")
@@ -105,7 +104,7 @@ def startpage():
             start_game()
         elif choice == '2':
             join_game()
-        if choice == '3':
+        elif choice == '3':
             queryplayers()
         elif choice == '4':
             querygames()
@@ -211,6 +210,13 @@ def join_game():
         else:
             print(f"Waiting for the game to start. Received message: {decoded_response}")
 
+def handle_game_over():
+    global in_game
+    print("Game over!")
+    in_game = False  # Reset in_game flag to indicate the game has ended.
+    print("The game has ended. Returning to start page...")
+    time.sleep(2)  # Allow some time for the message to display before resetting.
+    startpage()  # Return to the start page after the game ends.
 
 
 

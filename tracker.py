@@ -269,7 +269,7 @@ def process_next_player(game_info):
         round_count = game_info["game_state"]["round"]
 
     # If the round count exceeds the number of allowed rounds, end the game
-    if round_count >= game_info["rounds"]:
+    if round_count > game_info["rounds"]:
         end_game_logic(game_info, game_id)
     else:
         # Continue with the next player
@@ -564,6 +564,7 @@ def start_game_thread(players, rounds):
     global game_registry
     game_id = random.randint(1000, 9999)  # Generate a unique game ID
 
+
     # Update the player_game_map to associate each player with the game
     for player in players:
         player_ip = player[1]
@@ -657,13 +658,12 @@ def end_game_logic(game_info, game_id):
         final_message = f"The winner is {winner}. Final scores:\n"
         for p, score in scores.items():
             final_message += f"{p}: {score} points\n"
-        send_message_to_all(game_info, final_message)
+        send_udp_message(ipaddr, t_port, final_message)
 
     message = "Game over!"
     send_message_to_all(game_info,message)
     # Remove game data using the player who started the game
     remove_game_data(players[0][0])  # Pass the player name who started the game
-    time.sleep(1)
 
     # Return to UDP server listening state
     print(f"Game started by '{players[0][0]}' ended. Returning to UDP server listening state.")
